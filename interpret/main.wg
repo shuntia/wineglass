@@ -1,4 +1,3 @@
-#start parser p1
-#start parser p2
-#end parser p1
-#eof
+int main() {
+    println("Test");
+}
