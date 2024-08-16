@@ -1,39 +1,11 @@
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::Path;
-
-pub struct Warning {
-    pub file: String,
-    pub message: String,
-    pub loc: (i64, i64),
+use std::io::Read;
+use crate::err;
+pub fn validate(file: &mut std::fs::File) -> Result<Vec<err::Diagnostic>, String> {
+    let valid=file;
+    let mut contents=String::new();
+    valid.read_to_string(&mut contents).map_err(|_| "Error reading file".to_string())?;
+    return validate_str(&contents);
 }
-
-pub struct Info {
-    pub file: String,
-    pub message: String,
-    pub loc: (i64, i64),
-}
-
-pub struct Error {
-    pub file: String,
-    pub message: String,
-    pub loc: (i64, i64),
-}
-
-pub struct Fatal {
-    pub file: String,
-    pub message: String,
-    pub loc: (i64, i64),
-}
-
-pub enum Diagnostic {
-    Warning(Warning),
-    Info(Info),
-    Error(Error),
-    Fatal(Fatal),
-}
-
-pub fn validate(file: &mut std::fs::File) -> Result<Vec<Diagnostic>, String> {
-    // Dummy implementation for validation
+pub fn validate_str(file: &str) -> Result<Vec<err::Diagnostic>, String> {
     return Ok(vec![]);
 }
