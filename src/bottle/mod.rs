@@ -2,10 +2,16 @@ use std::fs;
 use std::path::Path;
 use crate::winecellar;
 use crate::err;
+use log::{info, warn, error, trace};
 pub fn start(path: &String) -> Result<i32, String> {
-    assert_eq!(Path::new(path).exists(), true, "path does not exist!");
-    let main_str:String=fs::read_to_string(path).expect("File unable to be read to string. Is the path valid?");
-    winecellar::validate(main_str);
+    if !Path::new(path).exists() {
+        panic!("File does not exist: {}", path);
+    }
+    log::info!("File found.");
+    winecellar::validate(&mut match fs::File::open(path) {
+        Ok(file) => file,
+        Err(why) => panic!("Error opening file for unknown reason! {:?}", why),
+    });
     return Ok(0);
 }
 

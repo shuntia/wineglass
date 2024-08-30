@@ -1,6 +1,5 @@
 use std::fs;
 
-
 pub struct Warning {
     pub code:i64,
     pub file: String,
@@ -33,11 +32,43 @@ pub struct Fatal {
     pub len: usize,
 }
 
+pub struct InternalWarning {
+    pub code:i64,
+    pub file: String,
+    pub message: String,
+}
+
+pub struct InternalInfo {
+    pub code:i64,
+    pub file: String,
+    pub message: String,
+}
+
+pub struct InternalError {
+    pub code:i64,
+    pub file: String,
+    pub message: String,
+}
+
+pub struct InternalFatal {
+    pub code:i64,
+    pub file: String,
+    pub message: String,
+}
 pub enum Diagnostic {
+    ///container for Diagnostics of code
     Warning(Warning),
     Info(Info),
     Error(Error),
     Fatal(Fatal),
+}
+
+pub enum InternalReport{
+    ///Errors produced by the compiler. These are unexpected errors.
+    InternalWarning(InternalWarning),
+    InternalInfo(InternalInfo),
+    InternalError(InternalError),
+    InternalFatal(InternalFatal),
 }
 
 impl Diagnostic {
@@ -49,21 +80,21 @@ impl Diagnostic {
             Diagnostic::Fatal(f) => f.code,
         }
     }
-    pub fn get_message(&self) -> &str {
-        match self {
+    pub fn get_message(&self) -> String {
+        return match self {
             Diagnostic::Warning(w) => &w.message,
             Diagnostic::Info(i) => &i.message,
             Diagnostic::Error(e) => &e.message,
             Diagnostic::Fatal(f) => &f.message,
-        }
+        }.to_owned();
     }
-    pub fn get_file(&self) -> &str {
-        match self {
+    pub fn get_file(&self) -> String {
+        return match self {
             Diagnostic::Warning(w) => &w.file,
             Diagnostic::Info(i) => &i.file,
             Diagnostic::Error(e) => &e.file,
             Diagnostic::Fatal(f) => &f.file,
-        }
+        }.to_owned();
     }
     pub fn get_location(&self) -> (usize, usize) {
         match self {
@@ -81,6 +112,14 @@ impl Diagnostic {
             Diagnostic::Fatal(f) => f.len,
         }
     }
+    pub fn get_idx(&self) -> (usize, usize, usize) {
+        return match &self{
+            Diagnostic::Warning(w) => (w.loc.0, w.loc.1, w.len),
+            Diagnostic::Info(i) => (i.loc.0, i.loc.1, i.len),
+            Diagnostic::Error(e) => (e.loc.0, e.loc.1, e.len),
+            Diagnostic::Fatal(f) => (f.loc.0, f.loc.1, f.len),
+        };
+    }
     pub fn get_problem(&self) -> String{
         match &self{
             Diagnostic::Warning(w) => if w.code==0 {return "-".to_owned()},
@@ -94,13 +133,84 @@ impl Diagnostic {
             Diagnostic::Error(e) => &e.file,
             Diagnostic::Fatal(f) => &f.file,
         }).expect("Invalid Diagnostic! Failed to read to string!");
-        let loc_idx=match &self{
-            Diagnostic::Warning(w) => (w.loc.0, w.loc.1, w.len),
-            Diagnostic::Info(i) => (i.loc.0, i.loc.1, i.len),
-            Diagnostic::Error(e) => (e.loc.0, e.loc.1, e.len),
-            Diagnostic::Fatal(f) => (f.loc.0, f.loc.1, f.len),
+        let loc_idx=&self.get_idx();
+        let spliced_str=match binding.lines().nth(loc_idx.0){
+            Some(line)=>line,
+            None=>panic!("Invalid Diagnostic! Failed to find line"),
         };
-        let spliced_iter=binding.lines().nth(loc_idx.0);
-        return filestr[loc_idx.0][loc_idx.1..loc_idx.2].to_owned();
+        return spliced_str[loc_idx.1..loc_idx.2].to_owned();
+    }
+    pub fn display(&self) -> String{
+        let idx=self.get_idx();
+        let problem=self.get_problem();
+        let message=self.get_message();
+        let code=self.get_code();
+        let mut display:String=code.to_string();
+        display.push_str("\n");
+        display.push_str(&format!("at ({}, {}),\n",idx.0, idx.1));
+        display.push_str(&format!("{}\n",problem));
+        display.push_str(&(" ".repeat(idx.1)));
+        display.push_str("^");
+        display.push_str(&("~".repeat(idx.2)));
+        display.push_str(&"\n");
+        display.push_str(&message);
+        return display;
+    }
+}
+
+impl InternalReport {
+    pub fn get_type(&self) -> String{
+        match self{
+            Self::InternalWarning(_)=>"Warning".to_owned(),
+            Self::InternalError(_)=>"Error".to_owned(),
+            Self::InternalFatal(_)=>"Fatal".to_owned(),
+            Self::InternalInfo(_)=>"Info".to_owned(),
+        }
+    }
+    pub fn get_code(&self) -> i64 {
+        match self {
+            InternalReport::InternalWarning(w) => w.code,
+            InternalReport::InternalInfo(i) => i.code,
+            InternalReport::InternalError(e) => e.code,
+            InternalReport::InternalFatal(f) => f.code,
+        }
+    }
+    pub fn get_message(&self) -> String {
+        return match self {
+            InternalReport::InternalWarning(w) => &w.message,
+            InternalReport::InternalInfo(i) => &i.message,
+            InternalReport::InternalError(e) => &e.message,
+            InternalReport::InternalFatal(f) => &f.message,
+        }.to_owned();
+    }
+    pub fn get_file(&self) -> String {
+        return match self {
+            InternalReport::InternalWarning(w) => &w.file,
+            InternalReport::InternalInfo(i) => &i.file,
+            InternalReport::InternalError(e) => &e.file,
+            InternalReport::InternalFatal(f) => &f.file,
+        }.to_owned();
+    }
+    pub fn display(&self) -> String{
+        let message=self.get_message();
+        let code=self.get_code();
+        let t=self.get_type();
+        let mut display:String=format!("{:?}{:?} ",t,code);
+        display.push_str(&message);
+        return display;
+    }
+    pub fn expect(&self,m:String){
+        match self{
+            InternalReport::InternalError(e) => panic!("{}\nError! {}",m,e.message),
+            InternalReport::InternalFatal(f) => panic!("{}\nFatal! {}",m,f.message),
+            _ => {},
+        }
+    }
+    pub fn unwrap(&self){
+        match self{
+            InternalReport::InternalError(e) => panic!("Error! {}",e.message),
+            InternalReport::InternalFatal(f) => panic!("Fatal! {}",f.message),
+            _ => {},
+        }
     }
 }

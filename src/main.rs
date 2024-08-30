@@ -11,7 +11,7 @@ mod config;
 pub mod err;
 fn main() {
     env_logger::init();
-    println!("Starting Wineglass with arguments: {:?}", env::args().collect());
+    println!("Starting Wineglass with arguments: {:?}", env::args().collect::<Vec<String>>());
     let target:Vec<String>=vec![env!("CARGO_MANIFEST_DIR").to_string(),"interpret\\main.wg".to_string()];
     let sep:&str = &MAIN_SEPARATOR_STR;
     let target_path_str = target.join(sep);
@@ -21,11 +21,12 @@ fn main() {
     match target_path.exists(){
         true => {
             file = match File::open(&target_path) {
-                Err(why) => panic!("Fatal! Couldn't open {}: {}", target_path.display(), why),
+                Err(why) => panic!("FATAL! Couldn't open {}: {}", target_path.display(), why),
                 Ok(file) => file
             };
         }
-        false => println!("Target file not found: {}", target_path.display()),
+        false => panic!("FATAL! Target file not found: {}", target_path.display()),
+        _ => panic!("FATAL! Unknown error! failed to check if target path exists!: {}", target_path.display())
     };
     let diag = match winecellar::validate(&mut file) {
         Err(why) => panic!("Couldn't validate {}: Due to {}", target_path.display(), why),

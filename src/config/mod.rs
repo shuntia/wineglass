@@ -1,9 +1,8 @@
 use std::any::TypeId;
-use std::hash::Hash;
 use std::vec;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::env;
-use std::collections::HashSet;
+use log;
 
 pub(super) enum Arg{
     File(String),
@@ -20,15 +19,13 @@ impl AllowedArgument {
         Self {
             storeb: {
                 let mut storeb = HashMap::new();
-                storeb.insert("help".to_owned(), true);
-                storeb.insert("h".to_owned(), true);
+                storeb.insert("help".to_owned(), false);
                 storeb.insert("debug".to_owned(), false);
                 storeb.insert("version".to_owned(), false);
                 storeb.insert("verbose".to_owned(), false);
-                storeb.insert("v".to_owned(), false);
                 storeb.insert("trackerr".to_owned(), false);
-                storeb.insert("dev".to_owned(), false);
-                storeb.insert("continue".to_owned(), true);
+                storeb.insert("continue".to_owned(), false);
+                storeb.insert("log".to_owned(), false);
                 // Add more arguments here
                 storeb
             },
@@ -73,9 +70,10 @@ impl Args{
             if current_arg.starts_with("--") {
                 let arg_content = current_arg[2..current_arg.len()].to_string();
                 if allowed_args.find(&arg_content).expect("invalid args!")==TypeId::of::<HashMap<String, bool>>(){
-                    
+                    map.insert(arg_content, Arg::Bool(true));
                 }else if allowed_args.find(&arg_content).expect("invalid args!")==TypeId::of::<HashMap<String, u64>>(){
-
+                    let tmp=Arg::Int(arg_content.parse::<usize>().expect("Invalid integer argument"));
+                    map.insert(arg_content, tmp);
                 }
             }
         }
@@ -88,40 +86,43 @@ pub(super) struct ConfigSettings{
     value: String,
 }
 #[derive(Clone)]
-pub struct Config{
+pub struct Config<'a>{
     name: String,
-    children: HashMap<String, ConfigFolder>
+    children: HashMap<String, &'a ConfigFolder<'a>>
 }
 #[derive(Clone)]
-pub(super) struct ConfigFolder{
-    children: HashMap<String, FolderContent>
+pub(super) struct ConfigFolder<'a>{
+    children: HashMap<String, &'a FolderContent<'a>>
 }
 #[derive(Clone)]
-enum FolderContent{
-    Folder(ConfigFolder),
+enum FolderContent<'a>{
+    Folder(ConfigFolder<'a>),
     Setting(ConfigSettings),
 }
 
-impl Config{
+impl<'a> Config<'a>{
     ///get all the subfolders in the root Cfg folder. Uses clone(), so watch out for time consumption.
-    fn get_subfolder(&self) -> Result<HashMap<String, ConfigFolder>, String>{
+    fn get_subfolder(&self) -> Result<HashMap<String, &ConfigFolder>, String>{
         return Ok(self.children.clone());
     }
     ///get all the settings that have the key given by DFS.
     fn find_setting(&self, name: &str) -> Vec<ConfigSettings> {
         let mut results = Vec::new();
-        let mut stack = Vec::new();
+        let mut stack : Vec<(String, &ConfigFolder<'a>)> = Vec::new();
 
         // Start with the root children
         for (key, content) in self.children.iter() {
-            stack.push((key.clone(), content));
+            stack.push((key.clone(), &content.to_owned()));
         }
 
         // Perform DFS
         while let Some((_key, content)) = stack.pop() {
             for (child_key, child_content) in content.children.iter() {
                 match child_content {
-                    FolderContent::Folder(f)=>stack.push((child_key.clone(), f)),
+                    FolderContent::Folder(f)=>{
+                        let x = f;
+                        stack.push((child_key.clone(), &x))
+                    },
                     FolderContent::Setting(s)=> {
                         if child_key == name {
                             results.push(s.clone());
@@ -141,14 +142,14 @@ impl Config{
             e.push_str(separated_path[0]);
             return Err(e);
         }
-        let mut current_folder: &ConfigFolder;
+        let mut current_folder: &ConfigFolder=self.children[path];
         for i in 1..separated_path.len()-1{
-            current_folder=match current_folder.children[separated_path[i]]{
+            current_folder=match &current_folder.children[separated_path[i]]{
                 FolderContent::Folder(f) => current_folder,
                 FolderContent::Setting(s) => panic!("Setting with identical name as folder")
             };
         }
-        match current_folder.children[separated_path[separated_path.len()-1]]{
+        match &current_folder.children[separated_path[separated_path.len()-1]]{
             FolderContent::Folder(f) => {
                 let mut e="Folder with identical name: ".to_owned();
                 e.push_str(separated_path[separated_path.len()-1]);
@@ -177,7 +178,7 @@ impl Config{
             if current_folder.children.contains_key(separated_path[i]){
                 current_folder = match &current_folder.children[separated_path[1]]{
                     FolderContent::Folder(f) => f.clone(),
-                    FolderContent::Setting(s) => {let e="Setting with identical name: ".to_owned(); e.push_str(separated_path[1]);return Err(e)}
+                    FolderContent::Setting(s) => {let mut e="Setting with identical name: ".to_owned(); e.push_str(separated_path[1]);return Err(e)}
                 };
             }
         }
@@ -185,9 +186,9 @@ impl Config{
     }
 }
 
-impl ConfigFolder{
-    fn get_subfolder(&self) -> Result<Vec<ConfigFolder>, String>{
-        let mut ret: Vec<ConfigFolder>=vec![];
+impl<'a> ConfigFolder<'a>{
+    fn get_subfolder(&self) -> Result<Vec<&ConfigFolder>, String>{
+        let mut ret: Vec<&ConfigFolder>=vec![];
         for item in &self.children{
             match item.1{
                 FolderContent::Folder(f) => ret.push(f),
