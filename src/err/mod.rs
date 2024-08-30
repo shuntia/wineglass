@@ -159,12 +159,12 @@ impl Diagnostic {
 }
 
 impl InternalReport {
-    pub fn get_type(&self) -> String{
+    pub fn get_type(&self) -> &str{
         match self{
-            Self::InternalWarning(_)=>"Warning".to_owned(),
-            Self::InternalError(_)=>"Error".to_owned(),
-            Self::InternalFatal(_)=>"Fatal".to_owned(),
-            Self::InternalInfo(_)=>"Info".to_owned(),
+            Self::InternalWarning(_)=>"Warning",
+            Self::InternalError(_)=>"Error",
+            Self::InternalFatal(_)=>"Fatal",
+            Self::InternalInfo(_)=>"Info",
         }
     }
     pub fn get_code(&self) -> i64 {
@@ -199,7 +199,7 @@ impl InternalReport {
         display.push_str(&message);
         return display;
     }
-    pub fn expect(&self,m:String){
+    pub fn expect(&self,m:&str){
         match self{
             InternalReport::InternalError(e) => panic!("{}\nError! {}",m,e.message),
             InternalReport::InternalFatal(f) => panic!("{}\nFatal! {}",m,f.message),
