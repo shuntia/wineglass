@@ -1,5 +1,3 @@
-!!rack
-#include std
 int main(){
     std::println("Hello world!");
 }
