@@ -1,13 +1,8 @@
 use log::*;
-use serde_json::error;
 use std::fs::File;
-use std::io::{BufReader, Read};
 pub mod tools;
 
 pub struct Lexer {
-    location: String,
-    ntoken: tools::Token,
-    identifier: bool,
     reader: tools::LineReader,
     buf: String,
     target: File,
@@ -20,18 +15,13 @@ impl Lexer {
     pub fn from_file(input: &File) -> Result<Lexer, &str> {
         let owned_file_handle = match input.try_clone() {
             Ok(f) => f,
-            Err(_) => return Err("Failed to clone File Handle for Lexer!(@bottle::lexer)".into()),
+            Err(_) => return Err("Failed to clone File Handle for Lexer!(@bottle::lexer)"),
         };
         let reader_handle = match owned_file_handle.try_clone() {
             Ok(f) => f,
-            Err(_) => {
-                return Err("Failed to clone File Handle for BufReader!(@bottle::lexer)".into())
-            }
+            Err(_) => return Err("Failed to clone File Handle for BufReader!(@bottle::lexer)"),
         };
         Ok(Lexer {
-            location: String::new(),
-            ntoken: tools::Token::None,
-            identifier: false,
             reader: tools::LineReader::new(reader_handle).unwrap(),
             buf: String::new(),
             target: owned_file_handle,
@@ -42,16 +32,16 @@ impl Lexer {
         for next in self.reader.by_ref().peekable().peek() {
             match next {
                 Ok(ch) => {
-                    if *ch as char == c {
+                    if { *ch } == c {
                         return Some(buf);
                     } else {
-                        buf.push(*ch as char);
+                        buf.push(*ch);
                     }
                 }
                 Err(_) => return None,
             }
         }
-        return None;
+        None
     }
     ///returns the string until the character c is found, inclusively.
     fn next_to(&mut self, c: char) -> Option<String> {
@@ -59,17 +49,17 @@ impl Lexer {
         for next in self.reader.by_ref() {
             match next {
                 Ok(ch) => {
-                    if ch as char == c {
-                        buf.push(ch as char);
+                    if ch == c {
+                        buf.push(ch);
                         return Some(buf);
                     } else {
-                        buf.push(ch as char);
+                        buf.push(ch);
                     }
                 }
                 Err(_) => return None,
             }
         }
-        return None;
+        None
     }
     ///returns the string until the character c is found, exclusively.
     fn next_to_exclusive(&mut self, c: char) -> Option<String> {
@@ -80,10 +70,10 @@ impl Lexer {
             match next {
                 Some(s) => match s {
                     Ok(ch) => {
-                        if *ch as char == c {
+                        if { *ch } == c {
                             return Some(buf);
                         } else {
-                            buf.push(*ch as char);
+                            buf.push(*ch);
                         }
                         it.next();
                     }
@@ -93,7 +83,7 @@ impl Lexer {
             }
         }
     }
-    ///returns the string until a reserved character is found.
+    /// Returns the string until a reserved character is found.
     fn next_to_reserved(&mut self) -> Option<String> {
         let mut buf = String::new();
         let mut it = self.reader.by_ref().peekable();
@@ -102,16 +92,23 @@ impl Lexer {
             match next {
                 Some(s) => match s {
                     Ok(ch) => {
-                        if tools::is_reserved(*ch as char) {
+                        if tools::is_reserved(ch.clone()) {
+                            let _tmp=self.reader.by_ref().last();
                             return Some(buf);
                         } else {
-                            buf.push(*ch as char);
+                            buf.push(*ch);
+                            it.next(); // Consume the character only if it's not reserved
                         }
-                        it.next();
                     }
-                    Err(_) => return None,
+                    Err(e) => {
+                        error!("{:?}", e);
+                        return None;
+                    }
                 },
-                None => return None,
+                None => {
+                    it.next();
+                    return self.next_to_reserved();
+                }
             }
         }
     }
@@ -120,169 +117,141 @@ impl Lexer {
         for next in self.reader.by_ref() {
             match next {
                 Ok(ch) => {
-                    if ch as char == '\n' {
+                    if ch == '\n' {
                         return Some(buf);
                     } else {
-                        buf.push(ch as char);
+                        buf.push(ch);
                     }
                 }
                 Err(_) => return None,
             }
         }
-        return None;
+        None
     }
 }
 
 impl Iterator for Lexer {
-    type Item = Result<tools::Token, &'static str>;
+    type Item = Result<tools::Token, String>;
     fn next(&mut self) -> Option<Self::Item> {
         //outputs next token in the input provided at Lexer::new()
         match self.reader.next() {
             Some(res) => {
                 let c = match res {
-                    Ok(ch) => ch as char,
+                    Ok(ch) => ch,
                     Err(_) => {
-                        return Some(Err(
-                            "Failed to read character from file!(@bottle::lexer)".into()
-                        ))
+                        return Some(Err("Failed to read character from file!(@bottle::lexer)".to_string()))
                     }
                 };
                 match c {
-                    '#' => {
-                        return match self.next_line() {
-                            Some(s) => Some(Ok(tools::Token::Sharp(s))),
-                            None => {
-                                Some(Err("Failed to read character from file!(@bottle::lexer)"))
-                            }
-                        }
-                    }
+                    '#' => match self.next_line() {
+                        Some(s) => Some(Ok(tools::Token::Sharp(s))),
+                        None => Some(Err("Failed to read character from file!(@bottle::lexer)".to_string())),
+                    },
                     '@' => match self.next_line() {
                         Some(s) => {
-                            return Some(Ok(tools::Token::At(match s.strip_suffix("\n") {
+                            return Some(Ok(tools::Token::At(match s.strip_suffix('\n') {
                                 Some(s) => s.to_string(),
                                 None => s.to_string(),
                             })))
                         }
-                        None => {
-                            return Some(Err("Failed to read character from file!(@bottle::lexer)"))
-                        }
+                        None => Some(Err("Failed to read character from file!(@bottle::lexer)".to_string())),
                     },
-                    '(' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::OpenParen))),
-                    ')' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::CloseParen))),
-                    ',' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Comma))),
-                    '{' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::OpenBrace))),
-                    '}' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::CloseBrace))),
-                    '.' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Dot))),
-                    '*' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Star))),
-                    '+' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Plus))),
-                    '-' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Minus))),
-                    '/' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Slash))),
-                    '%' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Percent))),
-                    '=' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Equal))),
-                    '!' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Bang))),
-                    ';' => return Some(Ok(tools::Token::Simple(tools::SimpleToken::Semicolon))),
-                    '0'..='9' => match self.next_to_reserved() {
-                        Some(s) => match s.parse() {
-                            Ok(n) => {
-                                if self.reader.by_ref().peekable().peek() == Some(&Ok('.')) {
-                                    self.reader.next();
-                                    match self.next_to_reserved() {
-                                        Some(s) => match s.parse::<f64>() {
-                                            Ok(f) => {
-                                                return Some(Ok(tools::Token::LiteralFloat(
-                                                    n as f64 + f,
-                                                )));
-                                            }
-                                            Err(_) => {
-                                                self.error(
-                                                    "Invalid number literal!(@bottle::lexer)",
-                                                );
-                                                return None;
-                                            }
-                                        },
-                                        None => {
-                                            self.error("Invalid number literal!(@bottle::lexer)");
-                                            return None;
-                                        }
-                                    }
-                                } else {
-                                    return Some(Ok(tools::Token::LiteralInt(n)));
-                                }
-                            }
-                            Err(_) => {
-                                self.error("Invalid number literal!(@bottle::lexer)");
-                                return None;
-                            }
-                        },
-                        None => {
-                            self.error("Invalid number literal!(@bottle::lexer)");
-                            return None;
-                        }
-                    },
-                    '"' => {
-                        return match self.next_to('"') {
-                            Some(s) => Some(Ok(tools::Token::StringLiteral(s))),
+                    '(' => Some(Ok(tools::Token::Simple(tools::SimpleToken::OpenParen))),
+                    ')' => Some(Ok(tools::Token::Simple(tools::SimpleToken::CloseParen))),
+                    ',' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Comma))),
+                    '{' => Some(Ok(tools::Token::Simple(tools::SimpleToken::OpenBrace))),
+                    '}' => Some(Ok(tools::Token::Simple(tools::SimpleToken::CloseBrace))),
+                    '.' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Dot))),
+                    '*' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Star))),
+                    '+' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Plus))),
+                    '-' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Minus))),
+                    '/' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Slash))),
+                    '%' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Percent))),
+                    '=' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Equal))),
+                    '!' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Bang))),
+                    ';' => Some(Ok(tools::Token::Simple(tools::SimpleToken::Semicolon))),
+                    '0'..='9' => {
+                        self.buf = c.to_string();
+                        while [].contains(match self.reader.by_ref().peekable().peek() {
+                            Some(s) => match s {
+                                Ok(ch) => ch,
+                                Err(e) => return Some(Err(e.clone())),
+                            },
                             None => {
-                                self.error("Failed to parse String Literal!(@bottle::lexer)");
-                                return None;
+                                return Some(Ok(tools::Token::LiteralInt(
+                                    c.to_string().parse::<i64>().unwrap(),
+                                )))
                             }
+                        }) {
+                            self.buf.push(self.reader.next().unwrap().unwrap());
                         }
+                        return match self.buf.parse::<i64>() {
+                            Ok(n) => Some(Ok(tools::Token::LiteralInt(n))),
+                            Err(_) => match self.buf.parse::<f64>() {
+                                Ok(f) => Some(Ok(tools::Token::LiteralFloat(f))),
+                                Err(_) => {
+                                    self.error("Invalid float!");
+                                    return Some(Err("Invalid Float".to_string()));
+                                }
+                            },
+                        };
                     }
+                    '"' => match self.next_to_exclusive('"') {
+                        Some(s) => Some(Ok(tools::Token::StringLiteral(s))),
+                        None => {
+                            self.error("Failed to parse String Literal!(@bottle::lexer)");
+                            return Some(Err("Invalid String Literal!".to_string()));
+                        }
+                    },
                     c => {
                         if c.is_alphabetic() || c == '_' {
-                            self.buf = match self.next_to_reserved() {
+                            self.buf = c.to_string();
+                            let next_reserved = match self.next_to_reserved() {
                                 Some(s) => s,
                                 None => {
-                                    self.error("Failed to read identifier!(@bottle::lexer)");
-                                    return None;
+                                    self.error("Failed to read identifier!");
+                                    return Some(Err(
+                                        "EOF encountered while searching for identifier".to_string(),
+                                    ));
                                 }
                             };
+                            self.buf.push_str(&next_reserved);
                             match self.buf.as_str() {
-                                "for" => return Some(Ok(tools::Token::For)),
-                                "while" => return Some(Ok(tools::Token::While)),
-                                "if" => return Some(Ok(tools::Token::If)),
-                                "else" => return Some(Ok(tools::Token::Else)),
-                                "return" => return Some(Ok(tools::Token::Return)),
-                                "break" => return Some(Ok(tools::Token::Break)),
-                                "continue" => return Some(Ok(tools::Token::Continue)),
-                                "match" => return Some(Ok(tools::Token::Match)),
-                                "case" => return Some(Ok(tools::Token::Case)),
-                                "true" => return Some(Ok(tools::Token::LiteralBool(true))),
-                                "false" => return Some(Ok(tools::Token::LiteralBool(false))),
-                                "null" => return Some(Ok(tools::Token::LiteralNull)),
+                                "for" => Some(Ok(tools::Token::For)),
+                                "while" => Some(Ok(tools::Token::While)),
+                                "if" => Some(Ok(tools::Token::If)),
+                                "else" => Some(Ok(tools::Token::Else)),
+                                "return" => Some(Ok(tools::Token::Return)),
+                                "break" => Some(Ok(tools::Token::Break)),
+                                "continue" => Some(Ok(tools::Token::Continue)),
+                                "match" => Some(Ok(tools::Token::Match)),
+                                "case" => Some(Ok(tools::Token::Case)),
+                                "true" => Some(Ok(tools::Token::LiteralBool(true))),
+                                "false" => Some(Ok(tools::Token::LiteralBool(false))),
+                                "null" => Some(Ok(tools::Token::LiteralNull)),
                                 "depend" => {
-                                    return Some(Ok(tools::Token::Depend(
-                                        self.reader.remaining_line(),
-                                    )))
+                                    Some(Ok(tools::Token::Depend(self.reader.remaining_line())))
                                 }
                                 "require" => {
-                                    return Some(Ok(tools::Token::Require(
-                                        self.reader.remaining_line(),
-                                    )))
+                                    Some(Ok(tools::Token::Require(self.reader.remaining_line())))
                                 }
                                 "import" => {
-                                    return Some(Ok(tools::Token::Import(
-                                        self.reader.remaining_line(),
-                                    )))
+                                    Some(Ok(tools::Token::Import(self.reader.remaining_line())))
                                 }
-                                "public" => return Some(Ok(tools::Token::Public)),
-                                "private" => return Some(Ok(tools::Token::Private)),
-                                "protected" => return Some(Ok(tools::Token::Protected)),
-                                s => return Some(Ok(tools::Token::Identifier(s.to_string()))),
+                                "public" => Some(Ok(tools::Token::Public)),
+                                "private" => Some(Ok(tools::Token::Private)),
+                                "protected" => Some(Ok(tools::Token::Protected)),
+                                s => Some(Ok(tools::Token::Identifier(s.to_string()))),
                             }
+                        } else if c == ' ' || c == '\t' || c == '\n' {
+                            return self.next();
                         } else {
-                            return Some(Err("Unrecognized tools::Token!(@bottle::lexer)"));
+                            Some(Err("Unrecognized Token!(@bottle::lexer)".to_string()))
                         }
                     }
                 }
             }
-            None => {
-                if self.buf.len() == 0 {
-                    return Some(Ok(tools::Token::Eof));
-                } else {
-                    return None;
-                }
-            }
+            None => None,
         }
     }
 }

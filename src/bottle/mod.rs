@@ -8,7 +8,7 @@ pub fn start(path: &String) -> Result<i32, String> {
         panic!("File does not exist: {}", path);
     }
     info!("File found.");
-    return Ok(0);
+    Ok(0)
 }
 pub struct Bottle {
     pub state: i32,
@@ -58,11 +58,10 @@ impl Bottle {
         });
     }
     pub fn start(&mut self) {
-        info!("Starting bottle: {}", self.name);
         for token in self.lexer.by_ref() {
             match token {
                 Ok(t) => {
-                    info!("Token: {:?}", t);
+                    println!("Token: {:?}", t);
                 }
                 Err(e) => {
                     error!("Error: {}", e);

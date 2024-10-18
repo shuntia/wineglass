@@ -55,6 +55,9 @@ pub enum Token {
     Public,
     Private,
     Protected,
+
+    //main
+    Main,
 }
 
 #[derive(Debug)]
@@ -120,11 +123,11 @@ impl LineReader {
             Some(Err(e)) => return Err(e),
             None => return Err(io::Error::new(io::ErrorKind::Other, "Empty file")),
         };
-        return Ok(Self {
+        Ok(Self {
             lines,
             current_line,
             char_idx: 0,
-        });
+        })
     }
 
     fn load_next_line(&mut self) -> bool {
@@ -135,10 +138,31 @@ impl LineReader {
             Some(Err(_)) => return false,
             None => return false,
         };
-        return true;
+        true
     }
     pub fn remaining_line(&self) -> String {
         self.current_line[self.char_idx..].to_string()
+    }
+    pub fn last(&mut self) -> Option<Result<char,String>>
+        where
+            Self: Sized, {
+            if self.char_idx==0{
+                self.current_line=match self.lines.by_ref().last(){
+                    Some(s)=>{
+                        match s{
+                            Ok(o)=>o,
+                            Err(e)=>return Some(Err(e.to_string()))
+                        }
+                    }
+                    None=>return None
+                };
+                self.char_idx=self.current_line.len();
+            }
+            self.char_idx-=1;
+            return match self.current_line.chars().nth(self.char_idx){
+                Some(c)=>Some(Ok(c)),
+                None=>None
+            };
     }
 }
 

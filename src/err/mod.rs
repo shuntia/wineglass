@@ -86,22 +86,22 @@ impl Diagnostic {
         }
     }
     pub fn get_message(&self) -> String {
-        return match self {
+        match self {
             Diagnostic::Warning(w) => &w.message,
             Diagnostic::Info(i) => &i.message,
             Diagnostic::Error(e) => &e.message,
             Diagnostic::Fatal(f) => &f.message,
         }
-        .to_owned();
+        .to_owned()
     }
     pub fn get_file(&self) -> String {
-        return match self {
+        match self {
             Diagnostic::Warning(w) => &w.file,
             Diagnostic::Info(i) => &i.file,
             Diagnostic::Error(e) => &e.file,
             Diagnostic::Fatal(f) => &f.file,
         }
-        .to_owned();
+        .to_owned()
     }
     pub fn get_location(&self) -> (usize, usize) {
         match self {
@@ -120,12 +120,12 @@ impl Diagnostic {
         }
     }
     pub fn get_idx(&self) -> (usize, usize, usize) {
-        return match &self {
+        match &self {
             Diagnostic::Warning(w) => (w.loc.0, w.loc.1, w.len),
             Diagnostic::Info(i) => (i.loc.0, i.loc.1, i.len),
             Diagnostic::Error(e) => (e.loc.0, e.loc.1, e.len),
             Diagnostic::Fatal(f) => (f.loc.0, f.loc.1, f.len),
-        };
+        }
     }
     pub fn get_problem(&self) -> String {
         match &self {
@@ -162,7 +162,7 @@ impl Diagnostic {
             Some(line) => line,
             None => panic!("Invalid Diagnostic! Failed to find line"),
         };
-        return spliced_str[loc_idx.1..loc_idx.2].to_owned();
+        spliced_str[loc_idx.1..loc_idx.2].to_owned()
     }
     pub fn display(&self) -> String {
         let idx = self.get_idx();
@@ -170,15 +170,15 @@ impl Diagnostic {
         let message = self.get_message();
         let code = self.get_code();
         let mut display: String = code.to_string();
-        display.push_str("\n");
+        display.push('\n');
         display.push_str(&format!("at ({}, {}),\n", idx.0, idx.1));
         display.push_str(&format!("{}\n", problem));
         display.push_str(&(" ".repeat(idx.1)));
-        display.push_str("^");
+        display.push('^');
         display.push_str(&("~".repeat(idx.2)));
-        display.push_str(&"\n");
+        display.push('\n');
         display.push_str(&message);
-        return display;
+        display
     }
 }
 
@@ -200,22 +200,22 @@ impl InternalReport {
         }
     }
     pub fn get_message(&self) -> String {
-        return match self {
+        match self {
             InternalReport::InternalWarning(w) => &w.message,
             InternalReport::InternalInfo(i) => &i.message,
             InternalReport::InternalError(e) => &e.message,
             InternalReport::InternalFatal(f) => &f.message,
         }
-        .to_owned();
+        .to_owned()
     }
     pub fn get_file(&self) -> String {
-        return match self {
+        match self {
             InternalReport::InternalWarning(w) => &w.file,
             InternalReport::InternalInfo(i) => &i.file,
             InternalReport::InternalError(e) => &e.file,
             InternalReport::InternalFatal(f) => &f.file,
         }
-        .to_owned();
+        .to_owned()
     }
     pub fn display(&self) -> String {
         let message = self.get_message();
@@ -223,7 +223,7 @@ impl InternalReport {
         let t = self.get_type();
         let mut display: String = format!("{:?}{:?} ", t, code);
         display.push_str(&message);
-        return display;
+        display
     }
     pub fn expect(&self, m: &str) {
         match self {

@@ -2,7 +2,6 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::env;
 use std::sync::OnceLock;
-use std::vec;
 
 pub(super) enum Arg {
     File(String),
@@ -39,7 +38,7 @@ impl AllowedArgument {
     }
     pub fn find(&self, key: &str) -> Result<TypeId, String> {
         if self.storeb.contains_key(key) {
-            return Ok(TypeId::of::<HashMap<String, bool>>());
+            Ok(TypeId::of::<HashMap<String, bool>>())
         } else if self.storei.contains_key(key) {
             return Ok(TypeId::of::<HashMap<String, u64>>());
         } else {
@@ -59,6 +58,12 @@ enum Argtype {
 pub struct Args {
     ///takes care of the arguments, including parsing.
     map: HashMap<String, Arg>,
+}
+
+impl Default for Args {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Args {
@@ -93,7 +98,7 @@ impl Args {
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
 pub fn get_config() -> &'static Config {
-    CONFIG.get_or_init(|| Config::new())
+    CONFIG.get_or_init(Config::new)
 }
 
 pub(super) struct ConfigSettings {
@@ -123,8 +128,8 @@ impl Config {
 
     /// Get all the settings that have the key given by DFS.
     fn find_setting(&self, name: &str) -> Vec<ConfigSettings> {
-        let mut results = Vec::new();
-        let mut stack: Vec<(String, &ConfigFolder)> = Vec::new();
+        let results = Vec::new();
+        let stack: Vec<(String, &ConfigFolder)> = Vec::new();
         results
     }
 }
@@ -138,7 +143,7 @@ impl Config {
     }
 
     fn init() -> &'static Config {
-        CONFIG.get_or_init(|| Config::new())
+        CONFIG.get_or_init(Config::new)
     }
 }
 
@@ -150,29 +155,29 @@ pub struct Version {
 
 impl Version {
     pub fn new(major: i32, minor: i32, patch: i32) -> Version {
-        return Version {
-            major: major,
-            minor: minor,
-            patch: patch,
-        };
+        Version {
+            major,
+            minor,
+            patch,
+        }
     }
     pub fn get_crate_ver() -> Version {
-        return Version {
+        Version {
             major: env!("CARGO_PKG_VERSION_MAJOR").parse::<i32>().unwrap(),
             minor: env!("CARGO_PKG_VERSION_MINOR").parse::<i32>().unwrap(),
             patch: env!("CARGO_PKG_VERSION_PATCH").parse::<i32>().unwrap(),
-        };
+        }
     }
     pub fn to_string(&self) -> String {
-        return format!("{}.{}.{}", self.major, self.minor, self.patch);
+        format!("{}.{}.{}", self.major, self.minor, self.patch)
     }
     pub fn major(&self) -> i32 {
-        return self.major;
+        self.major
     }
     pub fn minor(&self) -> i32 {
-        return self.minor;
+        self.minor
     }
     pub fn patch(&self) -> i32 {
-        return self.patch;
+        self.patch
     }
 }
