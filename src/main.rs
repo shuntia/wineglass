@@ -10,7 +10,6 @@ mod winecellar;
 fn main() {
     env_logger::init();
     let args = env::args().collect::<Vec<String>>();
-    println!("Starting Wineglass with arguments: {:?}", args);
     let target: Vec<String> = vec![
         env::current_dir().unwrap().to_str().unwrap().to_string(),
         "interpret\\main.wg".to_string(),
@@ -34,9 +33,9 @@ fn main() {
             target_path.display()
         ),
     };
-    println!("File found: {}", target_path.display());
     println!("Creating bottle...");
-    let mut bottle = bottle::Bottle::new(target_path, None, None, None).unwrap();
+    let mut bottle =
+        bottle::Bottle::new(target_path, Some("main"), None, Some("Main bottle")).unwrap();
     println!("Starting bottle!");
     bottle.start();
     println!("Bottle finished!");

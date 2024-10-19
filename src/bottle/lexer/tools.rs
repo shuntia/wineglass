@@ -46,6 +46,7 @@ pub enum Token {
     Continue,
     Match,
     Case,
+    Let,
 
     //Flags
     Depend(String),
@@ -83,6 +84,12 @@ pub enum SimpleToken {
     EqualEqual,
     Bang,
     BangEqual,
+
+    //flow symbols
+    LtArrow,
+    RtArrow,
+    Colon,
+    DoubleColon,
 }
 
 pub const SEPARATOR: [&str; 9] = ["(", ")", ",", "{", "}", "[", "]", ".", ";"];
@@ -112,6 +119,9 @@ pub struct LineReader {
 }
 
 impl LineReader {
+    pub fn peek(&self) -> Option<Result<char, String>> {
+        self.current_line.chars().nth(self.char_idx).map(Ok)
+    }
     pub fn get_loc(&mut self) -> (usize, usize) {
         (self.lines.by_ref().count(), self.char_idx)
     }
@@ -143,26 +153,22 @@ impl LineReader {
     pub fn remaining_line(&self) -> String {
         self.current_line[self.char_idx..].to_string()
     }
-    pub fn last(&mut self) -> Option<Result<char,String>>
-        where
-            Self: Sized, {
-            if self.char_idx==0{
-                self.current_line=match self.lines.by_ref().last(){
-                    Some(s)=>{
-                        match s{
-                            Ok(o)=>o,
-                            Err(e)=>return Some(Err(e.to_string()))
-                        }
-                    }
-                    None=>return None
-                };
-                self.char_idx=self.current_line.len();
-            }
-            self.char_idx-=1;
-            return match self.current_line.chars().nth(self.char_idx){
-                Some(c)=>Some(Ok(c)),
-                None=>None
+    pub fn last(&mut self) -> Option<Result<char, String>>
+    where
+        Self: Sized,
+    {
+        if self.char_idx == 0 {
+            self.current_line = match self.lines.by_ref().last() {
+                Some(s) => match s {
+                    Ok(o) => o,
+                    Err(e) => return Some(Err(e.to_string())),
+                },
+                None => return None,
             };
+            self.char_idx = self.current_line.len();
+        }
+        self.char_idx -= 1;
+        return self.current_line.chars().nth(self.char_idx).map(Ok);
     }
 }
 
@@ -175,15 +181,9 @@ impl Iterator for LineReader {
             self.char_idx += 1;
             return Some(Ok(c));
         } else if self.load_next_line() {
-            self.next(); // Retry with the new line.
-        } else {
-            return None; // No more characters to read.
-        }
-
-        if self.load_next_line() {
             self.next() // Retry with the new line.
         } else {
-            None // No more characters to read.
+            return None; // No more characters to read.
         }
     }
 }

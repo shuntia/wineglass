@@ -28,14 +28,14 @@ impl Bottle {
     ) -> Result<Bottle, String> {
         let path = targetpath.as_ref().to_path_buf();
         if !path.exists() {
-            panic!("File does not exist: {}", path.display());
+            return Err(format!("File does not exist: {}", path.display()));
         }
         info!("Target found: {}", path.display());
         let file = match std::fs::File::open(&path) {
             Ok(f) => f,
             Err(e) => return Err(format!("Failed to open file: {}", e)),
         };
-        let lexer = match lexer::Lexer::from_file(&file) {
+        let lexer = match lexer::Lexer::from_path(&targetpath) {
             Ok(l) => l,
             Err(e) => return Err(format!("Failed to create lexer: {}", e)),
         };
@@ -58,15 +58,14 @@ impl Bottle {
         });
     }
     pub fn start(&mut self) {
-        for token in self.lexer.by_ref() {
-            match token {
-                Ok(t) => {
-                    println!("Token: {:?}", t);
-                }
-                Err(e) => {
-                    error!("Error: {}", e);
-                }
-            }
-        }
+        println!("Starting bottle: {}", self.name);
+        println!("Version: {}", self.version);
+        println!("Description: {}", self.description);
+        println!("Path: {}", self.path.display());
+        println!("Parsing...");
+        self.lexer.by_ref().for_each(|x| match x {
+            Ok(l) => println!("{:?}", l),
+            Err(e) => eprintln!("Error: {}", e),
+        });
     }
 }
