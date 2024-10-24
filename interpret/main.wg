@@ -1,6 +1,4 @@
-int main(String[] args) -> String{
-    println("Hello world!");
-    int x = 33;
-    test("Is this parsed?");
-    f64 x = 2.3;
+main()->int{
+    shatter!();
+    return 0;
 }

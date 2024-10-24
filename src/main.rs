@@ -1,13 +1,12 @@
+use env_logger;
 use std::env;
 use std::fs::File;
 use std::path::Path;
 use std::path::MAIN_SEPARATOR_STR;
-use std::vec;
-mod bottle;
-mod config;
-mod err;
-mod winecellar;
-fn main() {
+use bottle;
+use configmgr::config;
+
+fn main(){
     env_logger::init();
     let args = env::args().collect::<Vec<String>>();
     let target: Vec<String> = vec![

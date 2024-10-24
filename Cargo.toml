@@ -1,9 +1,22 @@
+[workspace]
+members=[
+    "bottle",
+    "wg_stdlib",
+    "configmgr"
+]
 [package]
 name = "wineglass"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+configmgr = { path = "configmgr" }
+bottle = { path = "bottle" }
+wg_stdlib = { path = "wg_stdlib" }
+env_logger = "0.11.3"
+log = "0.4.22"
+
+[workspace.dependencies]
 env_logger = "0.11.3"
 log = "0.4.22"
 serde = {version="1.0.203", features=["derive"] }
