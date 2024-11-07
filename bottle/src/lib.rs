@@ -12,6 +12,7 @@ pub enum State {
     Shattered(i64),
 }
 pub struct Bottle {
+    hash: u64,
     pub state: State,
     pub name: String,
     pub path: PathBuf,
@@ -31,7 +32,9 @@ impl Bottle {
             return Err(format!("File does not exist: {}", path.display()));
         }
         info!("Target found: {}", path.display());
-        return Ok(Bottle {
+        info!("Packing Bottle...");
+        let mut bottle=Bottle {
+            hash: 0,
             state: State::Standard(0),
             name: match name {
                 Some(n) => n.to_string(),
@@ -46,7 +49,8 @@ impl Bottle {
                 Some(d) => d.to_string(),
                 None => String::new(),
             },
-        });
+        };
+        Ok(bottle)
     }
     pub fn start(&mut self) {
         println!("Starting bottle: {}", self.name);
