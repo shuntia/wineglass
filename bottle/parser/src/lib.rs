@@ -11,6 +11,46 @@ use env_logger::*;
 pub mod ast;
 use ast::AstNode::{self, *};
 use ast::AST;
+
+
+/// Parses the input string into an Abstract Syntax Tree (AST).
+///
+/// This function takes a string slice as input and attempts to parse it into an AST.
+/// The AST is represented by the `AST` struct, which contains a `Root` node with
+/// a list of child nodes.
+///
+/// # Arguments
+///
+/// * `input` - A string slice that holds the code to be parsed.
+///
+/// # Returns
+///
+/// * `Ok(AST)` - If the parsing is successful, it returns an `AST` struct.
+/// * `Err(String)` - If the parsing fails, it returns an error message as a `String`.
+///
+/// # Example
+///
+/// ```rust
+/// use parser::parse;
+/// let code = r#"fn main()->u32{
+///    return 42;
+/// }
+/// "#;
+/// match parse(code) {
+///     Ok(ast) => println!("Parsed successfully: {:?}", ast),
+///     Err(e) => println!("Error parsing: {}", e),
+/// }
+/// ```
+pub fn parse(input: &str) -> Result<AST, String> {
+    match many0(parse_stmt)(input) {
+        Ok((_, stmts)) => Ok(AST {
+            head: Root { children: stmts },
+        }),
+        Err(e) => Err(format!("Error parsing: {}", e)),
+    }
+}
+
+
 fn parse_identifier(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace0(input)?;
     map(
@@ -141,40 +181,4 @@ fn return_stmt(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace1(input)?;
     let (input, expr) = parse_expr(input)?;
     Ok((input, Return { value: Box::new(expr) }))
-}
-/// Parses the input string into an Abstract Syntax Tree (AST).
-///
-/// This function takes a string slice as input and attempts to parse it into an AST.
-/// The AST is represented by the `AST` struct, which contains a `Root` node with
-/// a list of child nodes.
-///
-/// # Arguments
-///
-/// * `input` - A string slice that holds the code to be parsed.
-///
-/// # Returns
-///
-/// * `Ok(AST)` - If the parsing is successful, it returns an `AST` struct.
-/// * `Err(String)` - If the parsing fails, it returns an error message as a `String`.
-///
-/// # Example
-///
-/// ```rust
-/// use parser::parse;
-/// let code = r#"fn main()->u32{
-///    return 42;
-/// }
-/// "#;
-/// match parse(code) {
-///     Ok(ast) => println!("Parsed successfully: {:?}", ast),
-///     Err(e) => println!("Error parsing: {}", e),
-/// }
-/// ```
-pub fn parse(input: &str) -> Result<AST, String> {
-    match many0(parse_stmt)(input) {
-        Ok((_, stmts)) => Ok(AST {
-            head: Root { children: stmts },
-        }),
-        Err(e) => Err(format!("Error parsing: {}", e)),
-    }
 }
