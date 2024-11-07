@@ -1,18 +1,7 @@
-pub mod lexer;
-pub mod parser;
 pub mod err;
 use configmgr::config;
 use log::*;
 use std::path::{Path, PathBuf};
-
-pub fn start(path: &String) -> Result<i32, String> {
-    if !Path::new(path).exists() {
-        panic!("File does not exist: {}", path);
-    }
-    info!("File found.");
-    Ok(0)
-}
-
 pub enum State {
     Standard(i32),
     Error(i32),
@@ -28,7 +17,6 @@ pub struct Bottle {
     pub path: PathBuf,
     pub version: config::Version,
     pub description: String,
-    pub lexer: lexer::Lexer,
 }
 
 impl Bottle {
@@ -43,14 +31,6 @@ impl Bottle {
             return Err(format!("File does not exist: {}", path.display()));
         }
         info!("Target found: {}", path.display());
-        let file = match std::fs::File::open(&path) {
-            Ok(f) => f,
-            Err(e) => return Err(format!("Failed to open file: {}", e)),
-        };
-        let lexer = match lexer::Lexer::from_path(&targetpath) {
-            Ok(l) => l,
-            Err(e) => return Err(format!("Failed to create lexer: {}", e)),
-        };
         return Ok(Bottle {
             state: State::Standard(0),
             name: match name {
@@ -66,7 +46,6 @@ impl Bottle {
                 Some(d) => d.to_string(),
                 None => String::new(),
             },
-            lexer,
         });
     }
     pub fn start(&mut self) {
@@ -75,10 +54,6 @@ impl Bottle {
         println!("Description: {}", self.description);
         println!("Path: {}", self.path.display());
         println!("lexing...");
-        self.lexer.by_ref().for_each(|x| match x {
-            Ok(l) => println!("{:?}", l),
-            Err(e) => eprintln!("Error: {}", e),
-        });
     }
 }
 

@@ -2,7 +2,11 @@
 members=[
     "bottle",
     "wg_stdlib",
-    "configmgr"
+    "configmgr",
+    "error",
+    "bottle",
+    "bottle/parser", 
+    "resource",
 ]
 [package]
 name = "wineglass"
@@ -10,13 +14,18 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-configmgr = { path = "configmgr" }
 bottle = { path = "bottle" }
 wg_stdlib = { path = "wg_stdlib" }
+error = { path = "error" }
+resource = { path = "resource" }
 env_logger = "0.11.3"
 log = "0.4.22"
+configmgr = { path = "configmgr" }
+parser = { path = "bottle/parser" }
 
 [workspace.dependencies]
+nom="7.1.3"
+configmgr = { path = "configmgr" }
 env_logger = "0.11.3"
 log = "0.4.22"
 serde = {version="1.0.203", features=["derive"] }
