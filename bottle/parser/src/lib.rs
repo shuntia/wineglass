@@ -1,3 +1,4 @@
+use env_logger::*;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -7,11 +8,9 @@ use nom::{
     sequence::{delimited, pair, preceded},
     IResult,
 };
-use env_logger::*;
 pub mod ast;
 use ast::AstNode::{self, *};
 use ast::AST;
-
 
 /// Parses the input string into an Abstract Syntax Tree (AST).
 ///
@@ -50,7 +49,6 @@ pub fn parse(input: &str) -> Result<AST, String> {
     }
 }
 
-
 fn parse_identifier(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace0(input)?;
     map(
@@ -70,24 +68,34 @@ fn parse_ret_type(input: &str) -> IResult<&str, AstNode> {
 }
 fn parse_literalnum(input: &str) -> IResult<&str, AstNode> {
     map(
-        pair(opt(alt((tag("0x"), tag("0b")))), recognize(pair(digit1, opt(pair(tag("."), digit1))))),
+        pair(
+            opt(alt((tag("0x"), tag("0b")))),
+            recognize(pair(digit1, opt(pair(tag("."), digit1)))),
+        ),
         |(prefix, s): (Option<&str>, &str)| IntLiteral {
-            value: i64::from_str_radix(s, match prefix {
-                Some("0x") => 16,
-                Some("0b") => 2,
-                _ => 10,
-            }).unwrap(),
+            value: i64::from_str_radix(
+                s,
+                match prefix {
+                    Some("0x") => 16,
+                    Some("0b") => 2,
+                    _ => 10,
+                },
+            )
+            .unwrap(),
         },
     )(input)
 }
 fn parse_fn(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = delimited(multispace0, tag("fn"), multispace0)(input)?;
-    let (input, name) = match parse_identifier(input){
-        Ok((input, n)) => match n{
+    let (input, name) = match parse_identifier(input) {
+        Ok((input, n)) => match n {
             Identifier { name } => (input, name),
             _ => {
                 println!("Error parsing identifier: {}", "Invalid identifier");
-                return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag)));
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Tag,
+                )));
             }
         },
         Err(e) => {
@@ -111,9 +119,9 @@ fn parse_fn(input: &str) -> IResult<&str, AstNode> {
         Function {
             name: name.to_string(),
             params: vec![],
-            return_type: match return_type{
+            return_type: match return_type {
                 Identifier { name } => name,
-                _ => "void".to_string()
+                _ => "void".to_string(),
             },
             body,
         },
@@ -129,26 +137,23 @@ fn parse_expr(input: &str) -> IResult<&str, AstNode> {
     alt((parse_literalnum, parse_identifier))(input)
 }
 fn parse_body(input: &str) -> IResult<&str, Vec<AstNode>> {
-    return delimited(preceded(multispace0, char('{')), many0(parse_stmt), preceded(multispace0, char('}')))(input);
+    return delimited(
+        preceded(multispace0, char('{')),
+        many0(parse_stmt),
+        preceded(multispace0, char('}')),
+    )(input);
 }
 fn parse_stmt(input: &str) -> IResult<&str, AstNode> {
-    let (input, _)=multispace0(input)?;
-    let (input, ret) = alt((
-        call,
-        parse_kwd,
-        parse_fn,
-        parse_expr,
-    ))(input)?;
+    let (input, _) = multispace0(input)?;
+    let (input, ret) = alt((call, parse_kwd, parse_fn, parse_expr))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = opt(char(';'))(input)?;
     Ok((input, ret))
 }
 
-fn parse_kwd(input:&str) -> IResult<&str, AstNode>{
+fn parse_kwd(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace0(input)?;
-    return alt((
-        return_stmt,
-    ))(input);
+    return alt((return_stmt,))(input);
 }
 
 fn call(input: &str) -> IResult<&str, AstNode> {
@@ -157,21 +162,31 @@ fn call(input: &str) -> IResult<&str, AstNode> {
     let (input, args) = delimited(char('('), many0(parse_expr), char(')'))(input)?;
     Ok((
         input,
-        match bang{
-            Some('!')=>BangCall {
+        match bang {
+            Some('!') => BangCall {
                 name: match name {
                     Identifier { name } => name,
-                    _ => return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag))),
+                    _ => {
+                        return Err(nom::Err::Error(nom::error::Error::new(
+                            input,
+                            nom::error::ErrorKind::Tag,
+                        )))
+                    }
                 },
                 args,
             },
-            _=>Call {
+            _ => Call {
                 name: match name {
                     Identifier { name } => name,
-                    _ => return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag))),
+                    _ => {
+                        return Err(nom::Err::Error(nom::error::Error::new(
+                            input,
+                            nom::error::ErrorKind::Tag,
+                        )))
+                    }
                 },
                 args,
-            }
+            },
         },
     ))
 }
@@ -180,5 +195,10 @@ fn return_stmt(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = tag("return")(input)?;
     let (input, _) = multispace1(input)?;
     let (input, expr) = parse_expr(input)?;
-    Ok((input, Return { value: Box::new(expr) }))
+    Ok((
+        input,
+        Return {
+            value: Box::new(expr),
+        },
+    ))
 }
