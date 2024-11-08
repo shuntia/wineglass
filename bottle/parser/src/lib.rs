@@ -1,12 +1,12 @@
-use env_logger::*;
+use log::{info, warn};
 use nom::{
     branch::alt,
-    bytes::complete::tag,
+    bytes::{complete::tag, streaming::take_till},
     character::complete::*,
     combinator::{map, opt, recognize},
     multi::many0,
     sequence::{delimited, pair, preceded},
-    IResult,
+    Err, IResult,
 };
 pub mod ast;
 use ast::AstNode::{self, *};
@@ -40,13 +40,14 @@ use ast::AST;
 ///     Err(e) => println!("Error parsing: {}", e),
 /// }
 /// ```
-pub fn parse(input: &str) -> Result<AST, String> {
-    match many0(parse_stmt)(input) {
-        Ok((_, stmts)) => Ok(AST {
-            head: Root { children: stmts },
-        }),
-        Err(e) => Err(format!("Error parsing: {}", e)),
-    }
+pub fn parse(input: &str) -> IResult<&str, AST> {
+    let (input, root) = many0(parse_stmt)(input)?;
+    return Ok((
+        input,
+        AST {
+            head: AstNode::Root { children: root },
+        },
+    ));
 }
 
 fn parse_identifier(input: &str) -> IResult<&str, AstNode> {
@@ -149,6 +150,7 @@ fn parse_stmt(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace0(input)?;
     let (input, _) = opt(char(';'))(input)?;
     Ok((input, ret))
+    //handle unknown statements
 }
 
 fn parse_kwd(input: &str) -> IResult<&str, AstNode> {
@@ -199,6 +201,18 @@ fn return_stmt(input: &str) -> IResult<&str, AstNode> {
         input,
         Return {
             value: Box::new(expr),
+        },
+    ))
+}
+
+fn unknown_stmt(input: &str) -> IResult<&str, AstNode> {
+    let (input, _) = multispace0(input)?;
+    let (input, unknown) = take_till(|c| c == ';' || c == '\n')(input)?;
+    info!("Unknown statement: {}", unknown);
+    Ok((
+        input,
+        AstNode::Unknown {
+            name: unknown.to_string(),
         },
     ))
 }
