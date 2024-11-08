@@ -72,6 +72,9 @@ pub enum AstNode {
     Variable {
         name: String,
     },
+    Unknown {
+        name: String,
+    },
     Eof,
     None,
 }

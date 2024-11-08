@@ -1,7 +1,15 @@
-use env_logger::*;
+use log::{
+    debug,
+    error,
+    info,
+    trace,
+    warn,
+    log,
+    Level
+};
 use nom::{
     branch::alt,
-    bytes::complete::tag,
+    bytes::{complete::tag, streaming::take_until},
     character::complete::*,
     combinator::{map, opt, recognize},
     multi::many0,
@@ -41,6 +49,7 @@ use ast::AST;
 /// }
 /// ```
 pub fn parse(input: &str) -> Result<AST, String> {
+    info!("Parsing...");
     match many0(parse_stmt)(input) {
         Ok((_, stmts)) => Ok(AST {
             head: Root { children: stmts },
@@ -145,7 +154,7 @@ fn parse_body(input: &str) -> IResult<&str, Vec<AstNode>> {
 }
 fn parse_stmt(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace0(input)?;
-    let (input, ret) = alt((call, parse_kwd, parse_fn, parse_expr))(input)?;
+    let (input, ret) = alt((call, parse_kwd, parse_fn, parse_expr, remove_unknown_stmt))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = opt(char(';'))(input)?;
     Ok((input, ret))
@@ -201,4 +210,10 @@ fn return_stmt(input: &str) -> IResult<&str, AstNode> {
             value: Box::new(expr),
         },
     ))
+}
+
+fn remove_unknown_stmt(input: &str) -> IResult<&str, AstNode> {
+    let (input, _) = multispace0(input)?;
+    let (input, unknown) = take_until(";")(input)?;
+    Ok((input, Unknown { name: unknown.to_string() }))
 }

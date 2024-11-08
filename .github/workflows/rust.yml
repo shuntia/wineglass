@@ -16,12 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Run Clippy
-      run: cargo clippy --all-targets --all-features --fix --allow-dirty
-    - name: Run fmt
-      run: cargo fmt
     - name: Build
-      run: cargo build --verbose --release
+      run: cargo build --verbose
+    - name: Format Check
+      run: cargo fmt --all -- --check
     #- name: Run tests
       #run: cargo test --verbose
 #- name: Run tests

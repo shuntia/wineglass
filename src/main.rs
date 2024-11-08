@@ -31,5 +31,5 @@ fn main() {
         Ok(_) => println!("Contents: {}", contents),
     };
     let parsed = parser::parse(&contents);
-    println!("Parsed: {:#?}", parsed.unwrap());
+    println!("Parsed: {:#?}", parsed);
 }
