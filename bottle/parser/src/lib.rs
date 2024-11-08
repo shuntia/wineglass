@@ -6,7 +6,7 @@ use nom::{
     combinator::{map, opt, recognize},
     multi::many0,
     sequence::{delimited, pair, preceded},
-    IResult,
+    Err, IResult,
 };
 pub mod ast;
 use ast::AstNode::{self, *};
@@ -40,14 +40,14 @@ use ast::AST;
 ///     Err(e) => println!("Error parsing: {}", e),
 /// }
 /// ```
-pub fn parse(input: &str) -> Result<AST, String> {
-    info!("Parsing...");
-    match many0(parse_stmt)(input) {
-        Ok((_, stmts)) => Ok(AST {
-            head: Root { children: stmts },
-        }),
-        Err(e) => Err(format!("Error parsing: {}", e)),
-    }
+pub fn parse(input: &str) -> IResult<&str, AST> {
+    let (input, root) = many0(parse_stmt)(input)?;
+    return Ok((
+        input,
+        AST {
+            head: AstNode::Root { children: root },
+        },
+    ));
 }
 
 fn parse_identifier(input: &str) -> IResult<&str, AstNode> {
@@ -146,10 +146,11 @@ fn parse_body(input: &str) -> IResult<&str, Vec<AstNode>> {
 }
 fn parse_stmt(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace0(input)?;
-    let (input, ret) = alt((call, parse_kwd, parse_fn, parse_expr, remove_unknown_stmt))(input)?;
+    let (input, ret) = alt((call, parse_kwd, parse_fn, parse_expr, unknown_stmt))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = opt(char(';'))(input)?;
     Ok((input, ret))
+    //handle unknown statements
 }
 
 fn parse_kwd(input: &str) -> IResult<&str, AstNode> {
@@ -204,12 +205,13 @@ fn return_stmt(input: &str) -> IResult<&str, AstNode> {
     ))
 }
 
-fn remove_unknown_stmt(input: &str) -> IResult<&str, AstNode> {
+fn unknown_stmt(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace0(input)?;
     let (input, unknown) = take_until(";")(input)?;
+    info!("Unknown statement: {}", unknown);
     Ok((
         input,
-        Unknown {
+        AstNode::Unknown {
             name: unknown.to_string(),
         },
     ))

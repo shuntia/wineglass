@@ -95,6 +95,21 @@ impl Args {
     }
 }
 
+impl Args {
+    pub fn get(&self, key: &str) -> Option<&Arg> {
+        self.map.get(key)
+    }
+
+    pub fn apply(&self) {
+        if match self.get("debug") {
+            Some(Arg::Bool(b)) => *b,
+            _ => false,
+        } {
+            log::set_max_level(log::LevelFilter::Debug);
+        }
+    }
+}
+
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
 pub fn get_config() -> &'static Config {
