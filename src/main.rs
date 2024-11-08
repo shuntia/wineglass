@@ -23,7 +23,7 @@ fn main() {
                 Ok(file) => file,
             };
         }
-        false => panic!("FATAL! Target file not found: {}", target_path.display())
+        false => panic!("FATAL! Target file not found: {}", target_path.display()),
     };
     let mut contents = String::new();
     match file.read_to_string(&mut contents) {

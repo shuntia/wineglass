@@ -33,7 +33,7 @@ impl Bottle {
         }
         info!("Target found: {}", path.display());
         info!("Packing Bottle...");
-        let mut bottle=Bottle {
+        let mut bottle = Bottle {
             hash: 0,
             state: State::Standard(0),
             name: match name {
