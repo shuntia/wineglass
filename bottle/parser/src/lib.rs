@@ -1,12 +1,4 @@
-use log::{
-    debug,
-    error,
-    info,
-    trace,
-    warn,
-    log,
-    Level
-};
+use log::{debug, error, info, log, trace, warn, Level};
 use nom::{
     branch::alt,
     bytes::{complete::tag, streaming::take_until},
@@ -215,5 +207,10 @@ fn return_stmt(input: &str) -> IResult<&str, AstNode> {
 fn remove_unknown_stmt(input: &str) -> IResult<&str, AstNode> {
     let (input, _) = multispace0(input)?;
     let (input, unknown) = take_until(";")(input)?;
-    Ok((input, Unknown { name: unknown.to_string() }))
+    Ok((
+        input,
+        Unknown {
+            name: unknown.to_string(),
+        },
+    ))
 }
