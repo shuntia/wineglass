@@ -7,3 +7,5 @@ edition = "2021"
 nom="7.1.3"
 resource = { path = "../../resource" }
 log = "0.4.22"
+typed-arena = "2.0.2"
+nom_locate = "4.2.0"

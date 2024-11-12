@@ -30,6 +30,7 @@ fn main() {
         Err(why) => panic!("FATAL! Couldn't read {}: {}", target_path.display(), why),
         Ok(_) => println!("Contents: {}", contents),
     };
-    let parsed = parser::parse(&contents);
+    let arena = typed_arena::Arena::new();
+    let parsed = parser::parse(parser::Span::new(&contents), &arena);
     println!("Parsed: {:#?}", parsed);
 }

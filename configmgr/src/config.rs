@@ -19,9 +19,10 @@ impl AllowedArgument {
             storeb: {
                 let mut storeb = HashMap::new();
                 storeb.insert("help".to_owned(), false);
+                storeb.insert("verbose".to_owned(), false);
+                storeb.insert("info".to_owned(), false);
                 storeb.insert("debug".to_owned(), false);
                 storeb.insert("version".to_owned(), false);
-                storeb.insert("verbose".to_owned(), false);
                 storeb.insert("trackerr".to_owned(), false);
                 storeb.insert("continue".to_owned(), false);
                 storeb.insert("log".to_owned(), false);
@@ -134,8 +135,25 @@ enum FolderContent {
     Folder(ConfigFolder),
     Setting(ConfigSettings),
 }
-
 impl Config {
+    /// Loads the config file from the disk. This is not recommended to check config.
+    /// use get_config() instead.
+    pub fn load() -> Config {
+        let mut config = Config::new();
+        config.name = "config".to_string();
+
+        config
+    }
+    fn new() -> Self {
+        Config {
+            name: String::new(),
+            children: HashMap::new(),
+        }
+    }
+    ///
+    pub fn init() -> &'static Config {
+        CONFIG.get_or_init(Config::load)
+    }
     /// Get all the subfolders in the root Cfg folder. Uses clone(), so watch out for time consumption.
     fn get_subfolder(&self) -> Result<HashMap<String, &ConfigFolder>, String> {
         Ok(self.children.clone())
@@ -146,19 +164,6 @@ impl Config {
         let results = Vec::new();
         let stack: Vec<(String, &ConfigFolder)> = Vec::new();
         results
-    }
-}
-
-impl Config {
-    fn new() -> Self {
-        Config {
-            name: String::new(),
-            children: HashMap::new(),
-        }
-    }
-
-    fn init() -> &'static Config {
-        CONFIG.get_or_init(Config::new)
     }
 }
 
@@ -183,9 +188,6 @@ impl Version {
             patch: env!("CARGO_PKG_VERSION_PATCH").parse::<i32>().unwrap(),
         }
     }
-    pub fn to_string(&self) -> String {
-        format!("{}.{}.{}", self.major, self.minor, self.patch)
-    }
     pub fn major(&self) -> i32 {
         self.major
     }
@@ -196,8 +198,18 @@ impl Version {
         self.patch
     }
 }
+impl From<&str> for Version {
+    fn from(s: &str) -> Version {
+        let v: Vec<&str> = s.split('.').collect();
+        Version {
+            major: v[0].parse::<i32>().unwrap(),
+            minor: v[1].parse::<i32>().unwrap(),
+            patch: v[2].parse::<i32>().unwrap(),
+        }
+    }
+}
 impl core::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
