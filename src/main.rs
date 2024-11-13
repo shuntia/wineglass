@@ -31,6 +31,6 @@ fn main() {
         Ok(_) => println!("Contents: {}", contents),
     };
     let arena = typed_arena::Arena::new();
-    let parsed = parser::parse(parser::Span::new(&contents), &arena);
-    println!("Parsed: {:#?}", parsed);
+    let mut parser = parser::Parser::new(nom_locate::LocatedSpan::new(&contents), &arena);
+    println!("Parsed: {:#?}", parser.parse());
 }

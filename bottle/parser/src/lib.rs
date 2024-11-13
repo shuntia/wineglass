@@ -17,7 +17,7 @@ use typed_arena::Arena;
 
 pub type Span<'a> = LocatedSpan<&'a str>;
 
-struct Parser<'a> {
+pub struct Parser<'a> {
     current_node: &'a AstNode<'a>,
     input: Span<'a>,
     arena: &'a Arena<AstNode<'a>>,
@@ -35,7 +35,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> IResult<Span<'a>, AST<'a>> {
-        let (input, root) = many0(|i| self.parse_stmt(i))(self.input)?;
+        let input = self.input;
+        let (input, root) = many0(|i| self.parse_stmt(i))(input)?;
         self.input = input;
         Ok((
             self.input,
@@ -134,7 +135,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
-        alt((|i| self.parse_literalnum(i), |i| self.parse_identifier(i)))(input)
+        self.parse_literalnum(input)
+            .or(self.parse_identifier(input))
     }
 
     fn parse_body(&mut self, input: Span<'a>) -> IResult<Span<'a>, Vec<&'a AstNode<'a>>> {
@@ -148,19 +150,19 @@ impl<'a> Parser<'a> {
 
     fn parse_stmt(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
         let (input, _) = multispace0(input)?;
-        let (input, ret) = alt((
-            |i| self.call(i),
-            |i| self.parse_kwd(i),
-            |i| self.parse_fn(i),
-            |i| self.parse_expr(i),
-        ))(input)?;
+        let (input, ret) = self
+            .call(input)
+            .or_else(|_| self.parse_kwd(input))
+            .or_else(|_| self.parse_fn(input))
+            .or_else(|_| self.parse_expr(input))?;
         let (input, _) = multispace0(input)?;
         let (input, _) = opt(char(';'))(input)?;
         Ok((input, ret))
     }
 
     fn parse_kwd(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
-        alt((|i| self.return_stmt(i)))(input)
+        self.return_stmt(input)
+        //alt((|i| self.return_stmt(i)))(input)
     }
 
     fn call(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
