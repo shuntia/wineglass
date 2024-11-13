@@ -81,7 +81,43 @@ pub struct AST<'a> {
     pub(crate) head: &'a AstNode<'a>,
     pub(crate) arena: &'a Arena<AstNode<'a>>,
 }
+impl<'a> std::fmt::Display for AST<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.head)
+    }
+}
 
+impl<'a> std::fmt::Display for AstNode<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AstNode::BinaryExpr { left, op, right } => {
+                write!(f, "({} {} {})", left, op, right)
+            }
+            AstNode::UnaryExpr { op, expr } => {
+                write!(f, "({}{})", op, expr)
+            }
+            AstNode::StrLiteral { value } => {
+                write!(f, "\"{}\"", value)
+            }
+            AstNode::IntLiteral { value } => {
+                write!(f, "{}", value)
+            }
+            AstNode::FloatLiteral { value } => {
+                write!(f, "{}", value)
+            }
+            AstNode::Identifier { name } => {
+                write!(f, "{}", name)
+            }
+            AstNode::Root { children } => {
+                for child in children {
+                    writeln!(f, "{}", child)?;
+                }
+                Ok(())
+            }
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
 impl std::fmt::Debug for AST<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#?}", self.head)

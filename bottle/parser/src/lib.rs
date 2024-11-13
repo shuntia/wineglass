@@ -17,263 +17,189 @@ use typed_arena::Arena;
 
 pub type Span<'a> = LocatedSpan<&'a str>;
 
-/// Parses the input string into an Abstract Syntax Tree (AST).
-///
-/// This function takes a string slice as input and attempts to parse it into an AST.
-/// The AST is represented by the `AST` struct, which contains a `Root` node with
-/// a list of child nodes.
-///
-/// # Arguments
-///
-/// * `input` - A string slice that holds the code to be parsed.
-///
-/// # Returns
-///
-/// * `Ok(AST)` - If the parsing is successful, it returns an `AST` struct.
-/// * `Err(String)` - If the parsing fails, it returns an error message as a `String`.
-///
-/// # Example
-///
-/// ```rust
-/// use parser::parse;
-/// let code = r#"fn main()->u32{
-///    return 42;
-/// }
-/// "#;
-/// match parse(code) {
-///     Ok(ast) => println!("Parsed successfully: {:?}", ast),
-///     Err(e) => println!("Error parsing: {}", e),
-/// }
-/// ```
-pub fn parse<'a>(input: Span<'a>, arena: &'a Arena<AstNode<'a>>) -> IResult<Span<'a>, AST<'a>> {
-    let (input, root) = many0(|i| parse_stmt(i, arena))(input)?;
-    Ok((
-        input,
-        AST {
-            head: arena.alloc(AstNode::Root { children: root }),
+struct Parser<'a> {
+    current_node: &'a AstNode<'a>,
+    input: Span<'a>,
+    arena: &'a Arena<AstNode<'a>>,
+    level: u32,
+}
+
+impl<'a> Parser<'a> {
+    pub fn new(input: Span<'a>, arena: &'a Arena<AstNode<'a>>) -> Self {
+        Self {
+            current_node: arena.alloc(Root { children: vec![] }),
+            input,
             arena,
-        },
-    ))
-}
-
-fn parse_identifier<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    let (input, _) = multispace0(input)?;
-    map(
-        recognize(pair(
-            alt((alpha1, tag("_"))),
-            many0(alt((alphanumeric1, tag("_")))),
-        )),
-        |s: Span<'a>| {
-            &*arena.alloc(Identifier {
-                name: s.fragment().to_string(),
-            })
-        },
-    )(input)
-}
-
-fn parse_ret_type<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    let (input, _) = delimited(multispace0, tag("->"), multispace0)(input)?;
-    parse_identifier(input, arena)
-}
-
-fn parse_literalnum<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    map(
-        pair(
-            opt(alt((tag("0x"), tag("0b")))),
-            recognize(pair(digit1, opt(pair(tag("."), digit1)))),
-        ),
-        |(prefix, s): (Option<Span<'a>>, Span<'a>)| {
-            &*arena.alloc(IntLiteral {
-                value: i64::from_str_radix(
-                    s.fragment(),
-                    match prefix.map(|p| *p.fragment()) {
-                        Some("0x") => 16,
-                        Some("0b") => 2,
-                        _ => 10,
-                    },
-                )
-                .unwrap(),
-            })
-        },
-    )(input)
-}
-
-fn parse_fn<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    let (input, _) = delimited(multispace0, tag("fn"), multispace0)(input)?;
-    let (input, name) = match parse_identifier(input, arena) {
-        Ok((input, n)) => match *n {
-            Identifier { ref name } => (input, name.clone()),
-            _ => {
-                println!("Error parsing identifier");
-                return Err(nom::Err::Error(nom::error::Error::new(
-                    input,
-                    nom::error::ErrorKind::Tag,
-                )));
-            }
-        },
-        Err(e) => {
-            println!("Error parsing identifier: {}", e);
-            return Err(e);
+            level: 0,
         }
-    };
-    let (input, _) = delimited(char('('), many0(|i| parse_arg(i, arena)), char(')'))(input)?;
-    let (input, return_type) = match parse_ret_type(input, arena) {
-        Ok((input, return_type)) => (input, return_type),
-        Err(_) => {
-            let void_node: &'a AstNode<'a> = &*arena.alloc(Identifier {
-                name: "void".to_string(),
-            });
-            (input, void_node)
-        }
-    };
-    let (input, body) = parse_body(input, arena)?;
-    Ok((
-        input,
-        &*arena.alloc(Function {
-            name,
-            params: vec![],
-            return_type: match *return_type {
-                Identifier { ref name } => name.clone(),
-                _ => "void".to_string(),
+    }
+
+    pub fn parse(&mut self) -> IResult<Span<'a>, AST<'a>> {
+        let (input, root) = many0(|i| self.parse_stmt(i))(self.input)?;
+        self.input = input;
+        Ok((
+            self.input,
+            AST {
+                head: self.arena.alloc(AstNode::Root { children: root }),
+                arena: self.arena,
             },
-            body,
-        }),
-    ))
-}
+        ))
+    }
 
-fn parse_arg<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    let (input, name) = parse_identifier(input, arena)?;
-    let (input, _) = char(':')(input)?;
-    let (input, ptype) = parse_expr(input, arena)?; // Assuming parse_expr is an appropriate type.
-    Ok((input, name))
-}
+    fn parse_identifier(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        let (input, _) = multispace0(input)?;
+        map(
+            recognize(pair(
+                alt((alpha1, tag("_"))),
+                many0(alt((alphanumeric1, tag("_")))),
+            )),
+            |s: Span<'a>| {
+                &*self.arena.alloc(Identifier {
+                    name: s.fragment().to_string(),
+                })
+            },
+        )(input)
+    }
 
-fn parse_expr<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    alt((
-        |i| parse_literalnum(i, arena),
-        |i| parse_identifier(i, arena),
-    ))(input)
-}
+    fn parse_ret_type(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        let (input, _) = delimited(multispace0, tag("->"), multispace0)(input)?;
+        self.parse_identifier(input)
+    }
 
-fn parse_body<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, Vec<&'a AstNode<'a>>> {
-    println!("Parsing body");
+    fn parse_literalnum(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        map(
+            pair(
+                opt(alt((tag("0x"), tag("0b")))),
+                recognize(pair(digit1, opt(pair(tag("."), digit1)))),
+            ),
+            |(prefix, s): (Option<Span<'a>>, Span<'a>)| {
+                &*self.arena.alloc(IntLiteral {
+                    value: i64::from_str_radix(
+                        s.fragment(),
+                        match prefix.map(|p| *p.fragment()) {
+                            Some("0x") => 16,
+                            Some("0b") => 2,
+                            _ => 10,
+                        },
+                    )
+                    .unwrap(),
+                })
+            },
+        )(input)
+    }
 
-    // Match the opening brace and allow for potential whitespace
-    let (input, _) = preceded(multispace0, char('{'))(input)?;
-
-    // Parse the body content, which could be a series of statements
-    let (input, body) = many0(|i| parse_stmt(i, arena))(input)?;
-
-    // Match the closing brace and ensure it is properly consumed
-    let (input, _) = preceded(multispace0, char('}'))(input)?;
-
-    println!("Parsed body: {:#?}", body);
-
-    Ok((input, body))
-}
-
-fn parse_stmt<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    let (input, _) = multispace0(input)?;
-    let (input, ret) = alt((
-        |i| call(i, arena),
-        |i| parse_kwd(i, arena),
-        |i| parse_fn(i, arena),
-        |i| parse_expr(i, arena),
-    ))(input)?;
-    let (input, _) = multispace0(input)?;
-    let (input, _) = opt(char(';'))(input)?;
-    Ok((input, ret))
-}
-
-fn parse_kwd<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    let (input, _) = multispace0(input)?;
-    return alt((|i| return_stmt(i, arena),))(input);
-}
-
-fn call<'a>(input: Span<'a>, arena: &'a Arena<AstNode<'a>>) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    let (input, name) = parse_identifier(input, arena)?;
-    let (input, bang) = opt(char('!'))(input)?;
-    let (input, args) = delimited(char('('), many0(|i| parse_expr(i, arena)), char(')'))(input)?;
-    Ok((
-        input,
-        match bang {
-            Some('!') => arena.alloc(BangCall {
-                name: match *name {
-                    Identifier { ref name } => name.clone(),
-                    _ => {
-                        return Err(nom::Err::Error(nom::error::Error::new(
-                            input,
-                            nom::error::ErrorKind::Tag,
-                        )))
-                    }
-                },
-                args,
+    fn parse_fn(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        let (input, _) = delimited(multispace0, tag("fn"), multispace0)(input)?;
+        let (input, name_node) = self.parse_identifier(input)?;
+        let name = if let Identifier { ref name } = *name_node {
+            name.clone()
+        } else {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                nom::error::ErrorKind::Tag,
+            )));
+        };
+        let (input, _) = delimited(char('('), many0(|i| self.parse_arg(i)), char(')'))(input)?;
+        let (input, return_type_node) = match self.parse_ret_type(input) {
+            Ok((input, return_type_node)) => (input, return_type_node),
+            Err(_) => {
+                let void_node = &*self.arena.alloc(Identifier {
+                    name: "void".to_string(),
+                });
+                (input, void_node)
+            }
+        };
+        let return_type = if let Identifier { ref name } = *return_type_node {
+            name.clone()
+        } else {
+            "void".to_string()
+        };
+        let (input, body) = self.parse_body(input)?;
+        Ok((
+            input,
+            &*self.arena.alloc(Function {
+                name,
+                params: vec![],
+                return_type,
+                body,
             }),
-            _ => arena.alloc(Call {
-                name: match *name {
-                    Identifier { ref name } => name.clone(),
-                    _ => {
-                        return Err(nom::Err::Error(nom::error::Error::new(
-                            input,
-                            nom::error::ErrorKind::Tag,
-                        )))
-                    }
-                },
-                args,
+        ))
+    }
+
+    fn parse_arg(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        let (input, name) = self.parse_identifier(input)?;
+        let (input, _) = char(':')(input)?;
+        let (input, _ptype) = self.parse_expr(input)?;
+        Ok((input, name))
+    }
+
+    fn parse_expr(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        alt((|i| self.parse_literalnum(i), |i| self.parse_identifier(i)))(input)
+    }
+
+    fn parse_body(&mut self, input: Span<'a>) -> IResult<Span<'a>, Vec<&'a AstNode<'a>>> {
+        println!("Parsing body");
+        let (input, _) = preceded(multispace0, char('{'))(input)?;
+        let (input, body) = many0(|i| self.parse_stmt(i))(input)?;
+        let (input, _) = preceded(multispace0, char('}'))(input)?;
+        println!("Parsed body: {:#?}", body);
+        Ok((input, body))
+    }
+
+    fn parse_stmt(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        let (input, _) = multispace0(input)?;
+        let (input, ret) = alt((
+            |i| self.call(i),
+            |i| self.parse_kwd(i),
+            |i| self.parse_fn(i),
+            |i| self.parse_expr(i),
+        ))(input)?;
+        let (input, _) = multispace0(input)?;
+        let (input, _) = opt(char(';'))(input)?;
+        Ok((input, ret))
+    }
+
+    fn parse_kwd(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        alt((|i| self.return_stmt(i)))(input)
+    }
+
+    fn call(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        let (input, name_node) = self.parse_identifier(input)?;
+        let name = if let Identifier { ref name } = *name_node {
+            name.clone()
+        } else {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                nom::error::ErrorKind::Tag,
+            )));
+        };
+        let (input, bang) = opt(char('!'))(input)?;
+        let (input, args) = delimited(char('('), many0(|i| self.parse_expr(i)), char(')'))(input)?;
+        let node = if bang.is_some() {
+            self.arena.alloc(BangCall { name, args })
+        } else {
+            self.arena.alloc(Call { name, args })
+        };
+        Ok((input, node))
+    }
+
+    fn return_stmt(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        let (input, _) = tag("return")(input)?;
+        let (input, _) = multispace1(input)?;
+        let (input, expr) = self.parse_expr(input)?;
+        Ok((input, self.arena.alloc(Return { value: expr })))
+    }
+
+    fn unknown_stmt(&mut self, input: Span<'a>) -> IResult<Span<'a>, &'a AstNode<'a>> {
+        println!("Unknown statement");
+        let (input, _) = multispace0(input)?;
+        let (input, unknown) = recognize(nom::bytes::streaming::take_until(";"))(input)?;
+        let (input, _) = opt(char(';'))(input)?;
+        Ok((
+            input,
+            self.arena.alloc(Unknown {
+                stmt: unknown.fragment().to_string(),
             }),
-        },
-    ))
-}
-
-fn return_stmt<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    let (input, _) = tag("return")(input)?;
-    let (input, _) = multispace1(input)?;
-    let (input, expr) = parse_expr(input, arena)?;
-    Ok((input, arena.alloc(Return { value: expr })))
-}
-
-fn unknown_stmt<'a>(
-    input: Span<'a>,
-    arena: &'a Arena<AstNode<'a>>,
-) -> IResult<Span<'a>, &'a AstNode<'a>> {
-    println!("Unknown statement");
-    let (input, _) = multispace0(input)?;
-    let (input, unknown) = recognize(nom::bytes::streaming::take_until(";"))(input)?;
-    let (input, _) = opt(char(';'))(input)?;
-    Ok((
-        input,
-        arena.alloc(Unknown {
-            stmt: unknown.fragment().to_string(),
-        }),
-    ))
+        ))
+    }
 }
