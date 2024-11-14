@@ -78,8 +78,8 @@ pub enum AstNode<'a> {
 }
 
 pub struct AST<'a> {
-    pub(crate) head: &'a AstNode<'a>,
-    pub(crate) arena: &'a Arena<AstNode<'a>>,
+    pub head: &'a AstNode<'a>,
+    pub arena: &'a Arena<AstNode<'a>>,
 }
 impl<'a> std::fmt::Display for AST<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

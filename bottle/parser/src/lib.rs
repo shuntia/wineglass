@@ -1,4 +1,3 @@
-pub mod ast;
 use ast::AstNode::{self, *};
 use ast::AST;
 use core::error;
@@ -93,7 +92,7 @@ impl<'a> Parser<'a> {
         let (input, _) = delimited(multispace0, tag("fn"), multispace0)(input)?;
         let (input, name_node) = self.parse_identifier(input)?;
         let name = if let Identifier { ref name } = *name_node {
-            name.clone()
+            name.to_owned()
         } else {
             return Err(nom::Err::Error(nom::error::Error::new(
                 input,
@@ -113,7 +112,7 @@ impl<'a> Parser<'a> {
         let return_type = if let Identifier { ref name } = *return_type_node {
             name.clone()
         } else {
-            "void".to_string()
+            "void".to_owned()
         };
         let (input, body) = self.parse_body(input)?;
         Ok((
