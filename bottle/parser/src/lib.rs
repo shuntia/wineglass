@@ -17,20 +17,13 @@ use typed_arena::Arena;
 pub type Span<'a> = LocatedSpan<&'a str>;
 
 pub struct Parser<'a> {
-    current_node: &'a AstNode<'a>,
     input: Span<'a>,
     arena: &'a Arena<AstNode<'a>>,
-    level: u32,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(input: Span<'a>, arena: &'a Arena<AstNode<'a>>) -> Self {
-        Self {
-            current_node: arena.alloc(Root { children: vec![] }),
-            input,
-            arena,
-            level: 0,
-        }
+        Self { input, arena }
     }
 
     pub fn parse(&mut self) -> IResult<Span<'a>, AST<'a>> {

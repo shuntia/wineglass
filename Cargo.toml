@@ -1,14 +1,14 @@
 [workspace]
 members=[
-    "bottle",
+    "packer",
     "wg_stdlib",
     "configmgr",
     "error",
-    "bottle",
-    "bottle/parser", 
+    "packer",
+    "packer/parser", 
     "resource",
-    "bottle/checker",
-    "bottle/ast",
+    "packer/checker",
+    "packer/ast",
 ]
 [package]
 name = "wineglass"
@@ -16,14 +16,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bottle = { path = "bottle" }
+bottle = { path = "packer" }
 wg_stdlib = { path = "wg_stdlib" }
 error = { path = "error" }
 resource = { path = "resource" }
 env_logger = "0.11.3"
 log = "0.4.22"
 configmgr = { path = "configmgr" }
-parser = { path = "bottle/parser" }
+parser = { path = "packer/parser" }
 typed-arena = "2.0.2"
 nom_locate = "4.2.0"
 
@@ -38,3 +38,4 @@ typed-arena = "2.0.2"
 nom_locate = "4.2.0"
 thiserror = "2.0.3"
 slotmap = "1.0.7"
+sha2 = "0.10.8"
