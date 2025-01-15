@@ -7,12 +7,12 @@ use std::path::MAIN_SEPARATOR_STR;
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
+    let sep: &str = MAIN_SEPARATOR_STR;
     let target: Vec<String> = vec![
         env::current_dir().unwrap().to_str().unwrap().to_string(),
-        "interpret\\main.wg".to_string(),
+        "interpret".to_owned() + sep + "main.wg",
     ];
     println!("Target: {:?}", target.join(MAIN_SEPARATOR_STR));
-    let sep: &str = MAIN_SEPARATOR_STR;
     let target_path_str = target.join(sep);
     let target_path = Path::new(&target_path_str);
     let mut file: File;
