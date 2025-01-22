@@ -3,25 +3,35 @@ use std::collections::HashMap;
 mod scope;
 mod symbol;
 use slotmap::{new_key_type, SlotMap};
+use symbol::{SymbolInfo, TypeInfo};
 use thiserror::Error;
 
 new_key_type! { pub struct ScopeId; }
 new_key_type! { pub struct TypeId; }
 
-/// Information about a symbol in the program
-#[derive(Debug, Clone)]
-pub struct SymbolInfo {
-    pub name: String,
-    pub ty: TypeId,
-    pub scope: ScopeId,
+//struct that actually checks
+pub struct Checker<'a> {
+    context: SemanticContext<'a>,
+    dependancies: HashMap<String, SemanticContext<'a>>,
+    program: &'a AST<'a>,
 }
 
-/// Information about a type in the program
-#[derive(Debug, Clone)]
-pub struct TypeInfo {
-    pub name: String,
-    pub size: usize,                     // Example: for primitive types or structs
-    pub fields: HashMap<String, TypeId>, // For composite types like structs
+impl<'a> Checker<'a> {
+    fn new(program: &'a AST<'a>) -> Self {
+        Checker {
+            context: SemanticContext::new(),
+            dependancies: HashMap::new(),
+            program,
+        }
+    }
+    fn add_dependancy(&mut self, name: String, context: SemanticContext<'a>) {
+        self.dependancies.insert(name, context);
+    }
+    fn check(&self) {
+        let mut context = SemanticContext::new();
+        let global_scope = context.enter_scope();
+        //traverse nodes and check for declaration errors etc
+    }
 }
 
 /// Enum to represent semantic errors
@@ -38,15 +48,15 @@ pub enum SemanticError {
 }
 
 /// Semantic context used for analysis
-pub struct SemanticContext {
-    pub symbol_table: HashMap<String, SymbolInfo>, // Flat mapping for symbols
-    pub types: SlotMap<TypeId, TypeInfo>,          // Storage for type information
-    pub scopes: SlotMap<ScopeId, HashMap<String, SymbolInfo>>, // Scopes for symbols
-    pub current_scope: ScopeId,                    // Current active scope
-    pub errors: Vec<SemanticError>,                // Accumulated errors
+pub struct SemanticContext<'a> {
+    pub symbol_table: HashMap<String, SymbolInfo<'a>>, // Flat mapping for symbols
+    pub types: SlotMap<TypeId, TypeInfo<'a>>,          // Storage for type information
+    pub scopes: SlotMap<ScopeId, HashMap<String, SymbolInfo<'a>>>, // Scopes for symbols
+    pub current_scope: ScopeId,                        // Current active scope
+    pub errors: Vec<SemanticError>,                    // Accumulated errors
 }
 
-impl SemanticContext {
+impl<'a> SemanticContext<'a> {
     /// Creates a new semantic context with a global scope
     pub fn new() -> Self {
         let mut scopes = SlotMap::with_key();
@@ -79,18 +89,14 @@ impl SemanticContext {
     }
 
     /// Adds a symbol to the current scope
-    pub fn add_symbol(&mut self, name: String, ty: TypeId) {
+    pub fn add_symbol(&mut self, name: String, ty: TypeInfo) {
         let current_scope = self.scopes.get_mut(self.current_scope).unwrap();
         if current_scope.contains_key(&name) {
             self.errors.push(SemanticError::DuplicateDeclaration(name));
         } else {
             current_scope.insert(
                 name.clone(),
-                SymbolInfo {
-                    name,
-                    ty,
-                    scope: self.current_scope,
-                },
+                SymbolInfo::new_variable(&name, ty, false, self.current_scope, None),
             );
         }
     }
@@ -116,4 +122,10 @@ impl SemanticContext {
     pub fn get_type(&self, ty_id: TypeId) -> Option<&TypeInfo> {
         self.types.get(ty_id)
     }
+}
+
+fn check(program: &ast::AST) {
+    let mut context = SemanticContext::new();
+    let global_scope = context.enter_scope();
+    //traverse nodes and check for declaration errors etc
 }

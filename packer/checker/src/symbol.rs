@@ -34,61 +34,66 @@ impl<'a> TypeInfo<'a> {
         self.type_hash
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum SymbolKind<'a> {
+    Variable,
+    Function {
+        return_type: TypeInfo<'a>,
+        parameter_types: &'a [TypeInfo<'a>],
+    },
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct SymbolInfo<'a> {
-    name: &'a str,             // Name of the symbol (e.g., variable name)
+    name: &'a str,             // Name of the symbol (e.g., variable or function name)
     symbol_type: TypeInfo<'a>, // The type of the symbol (e.g., int, float, custom type)
-    is_mutable: bool,          // Indicates if the symbol is mutable
+    is_mutable: bool,          // Indicates if the symbol is mutable (for variables)
     scope_level: usize,        // The scope level where the symbol is defined
     references: usize,         // Number of references to this symbol
-    type_hash: u64,
-    value: Option<&'a str>, // The value of the symbol
+    kind: SymbolKind<'a>,      // Kind of the symbol (variable or function)
+    value: Option<&'a str>,    // The value of the symbol (for variables)
 }
 
 impl<'a> SymbolInfo<'a> {
-    pub fn new(
+    pub fn new_variable(
         name: &'a str,
         symbol_type: TypeInfo<'a>,
         is_mutable: bool,
         scope_level: usize,
+        value: Option<&'a str>,
     ) -> Self {
-        let type_hash = symbol_type.get_type_hash();
         Self {
             name,
             symbol_type,
             is_mutable,
             scope_level,
             references: 0,
-            type_hash,
-            value: None,
+            kind: SymbolKind::Variable,
+            value,
         }
     }
 
+    pub fn new_function(
+        name: &'a str,
+        return_type: TypeInfo<'a>,
+        parameter_types: &'a [TypeInfo<'a>],
+        scope_level: usize,
+    ) -> Self {
+        Self {
+            name,
+            symbol_type: return_type,
+            is_mutable: false,
+            scope_level,
+            references: 0,
+            kind: SymbolKind::Function {
+                return_type,
+                parameter_types,
+            },
+            value: None,
+        }
+    }
     pub fn get_name(&self) -> &'a str {
         self.name
-    }
-
-    pub fn get_type(&self) -> TypeInfo<'a> {
-        self.symbol_type
-    }
-
-    pub fn is_mutable(&self) -> bool {
-        self.is_mutable
-    }
-
-    pub fn get_scope_level(&self) -> usize {
-        self.scope_level
-    }
-
-    pub fn is_initialized(&self) -> bool {
-        self.value.is_none()
-    }
-
-    pub fn get_references(&self) -> usize {
-        self.references
-    }
-
-    pub fn get_type_hash(&self) -> u64 {
-        self.type_hash
     }
 }

@@ -1,9 +1,10 @@
-use crate::symbol::SymbolInfo;
+use crate::symbol::SymbolKind;
+use crate::SymbolInfo;
 use std::collections::HashMap;
 
 pub struct Scope<'a> {
     parent: Option<&'a Scope<'a>>,
-    symbol_table: HashMap<&'a str, SymbolInfo<'a>>,
+    symbol_table: HashMap<&'a str, SymbolInfo>,
     children: Vec<&'a Scope<'a>>,
 }
 
@@ -15,10 +16,10 @@ impl<'a> Scope<'a> {
             children: Vec::new(),
         }
     }
-    pub fn insert(&mut self, symbol: SymbolInfo<'a>) {
+    pub fn insert(&mut self, symbol: SymbolInfo) {
         self.symbol_table.insert(symbol.get_name(), symbol);
     }
-    pub fn get(&self, name: &'a str) -> Option<&SymbolInfo<'a>> {
+    pub fn get(&self, name: &'a str) -> Option<&SymbolInfo> {
         match self.symbol_table.get(name) {
             Some(symbol) => Some(symbol),
             None => match self.parent {
